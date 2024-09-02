@@ -16,13 +16,18 @@ RUN set -eux ; \
 # Install pytorch
 # 
 
+# PyTorch comes with RCCL from ROCm 6.0.0 which cause a segmentation fault 
+# in the tests. It's supspected it's related to https://github.com/ROCm/rccl/pull/1153
+# Copying the RCCL library from /opt/rocm, solve the issue.
+
 ENV PYTORCH_ROCM_ARCH gfx90a 
 ARG PYTORCH_VERSION
 ARG PYTORCH_DEBUG
 ARG PYTORCH_RELWITHDEBINFO
 
 RUN $WITH_CONDA; set -eux ; \
-  pip3 install --pre torch==${PYTORCH_VERSION} --index-url https://download.pytorch.org/whl/
+  pip3 install --pre torch==${PYTORCH_VERSION} --index-url https://download.pytorch.org/whl/ ; \
+  cp /opt/rocm/lib/librccl.so $(dirname $(python -c 'import torch; print(torch.__file__)'))/lib
 
 #
 # Pytorch dependencies
@@ -41,6 +46,14 @@ RUN $WITH_CONDA; set -eux ; \
 ARG TORCHVISION_VERSION
 RUN $WITH_CONDA; set -eux ; \
   pip3 install --pre torchvision==$TORCHVISION_VERSION --index-url https://download.pytorch.org/whl/
+
+#
+# AMD-SMI
+#
+RUN $WITH_CONDA; set -eux ; \
+  cd $ROCM_PATH/share/amd_smi ; \
+  python3 -m pip wheel . --wheel-dir=/opt/wheels ; \
+  pip install /opt/wheels/amdsmi-*.whl
 
 ARG TORCHDATA_VERSION
 RUN $WITH_CONDA; set -eux ; \
