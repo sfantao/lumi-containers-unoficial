@@ -2,6 +2,11 @@
 ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/6.2/sle/15.5/amdgpu-install-6.2.60200-1.noarch.rpm
 ENV ROCM_RELEASE 6.2.0
 
+# Add the devel repo to install libtbb12 required by rocrand
+RUN set -eux ; \
+  zypper -n addrepo https://download.opensuse.org/repositories/devel:/libraries:/c_c++/15.5/ myrepo5 ; \
+  echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo5.repo
+
 RUN set -eux ; \
   zypper --no-gpg-checks -n install $ROCM_RPM
 

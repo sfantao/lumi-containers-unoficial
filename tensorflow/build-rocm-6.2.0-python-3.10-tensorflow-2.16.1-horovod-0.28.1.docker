@@ -11,6 +11,10 @@ ARG TENSORFLOW_VERSION
 RUN $WITH_CONDA; set -eux ; \
   pip install tensorflow-rocm==$TENSORFLOW_VERSION -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.2/
 
+ARG TF_KERAS_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip install --no-deps tf-keras==$TF_KERAS_VERSION
+
 #
 # Install horovod
 #

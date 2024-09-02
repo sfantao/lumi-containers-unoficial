@@ -9,7 +9,7 @@ common_files := $(shell find $$(pwd)/common -name Dockerfile.*)
 .PHONY: all alphafold pytorch mpi4py tensorflow
 
 all: alphafold mpi4py pytorch tensorflow rocm jax
-  echo "Built all"
+	echo "Built all"
 
 #
 # List all variation for each image here
@@ -40,15 +40,15 @@ jax: jax/build-rocm-6.2.0-python-3.12-jax-0.4.28.done
 # Generic recipe 
 #
 %.done: %.sh %.docker $(common_files)
-  set -eu ; \
-  app=$$(dirname $<) ; \
-  rp=$$(realpath $<) ; \
-  export RES=$$(realpath $@) ; \
-  cd $$(dirname $$rp) ; \
-  t=$$(basename $$rp | sed 's#^build-##g' | sed 's#.sh$$##g') ; \
-  export TAG="lumi/lumi-$$app:$$t" ; \
-  export DOCKERFILE=build-$$t.docker ; \
-  export DOCKERFILE_TMP=.tmp-build-$$t.docker ; \
-  export LOG=build-$$t.log ; \
-  $$rp
+	set -eu ; \
+	app=$$(dirname $<) ; \
+	rp=$$(realpath $<) ; \
+	export RES=$$(realpath $@) ; \
+	cd $$(dirname $$rp) ; \
+	t=$$(basename $$rp | sed 's#^build-##g' | sed 's#.sh$$##g') ; \
+	export TAG="lumi/lumi-$$app:$$t" ; \
+	export DOCKERFILE=build-$$t.docker ; \
+	export DOCKERFILE_TMP=.tmp-build-$$t.docker ; \
+	export LOG=build-$$t.log ; \
+	$$rp
   
