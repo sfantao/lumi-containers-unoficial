@@ -96,8 +96,7 @@ export SCMD="srun \
   singularity exec \
     -B /var/spool/slurmd \
     -B /opt/cray \
-    -B /usr/lib64/libcxi.so.1 \
-    -B /usr/lib64/libjansson.so.4"
+    -B /usr/lib64/libcxi.so.1
 EOF
 
 if [[ "$target" == "all" ]] ; then
@@ -105,6 +104,11 @@ if [[ "$target" == "all" ]] ; then
 else
   files=$(ls -1 $target/*.done)
 fi
+
+# Temp folder
+mkdir -p /tmp/sfantao-containers/lumi /tmp/sfantao-containers/.tmp
+# rm -rf /tmp/sfantao-containers/lumi/*
+ml singularity
 
 #docker login
 for i in $files ; do
@@ -130,23 +134,55 @@ for i in $files ; do
     sif="${rf1}${rf2}.sif"
 
     #
+    # Push to lumi-o
+    #
+    # set -x
+    # o_prefix="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
+   
+    # # Create tarball
+    # docker save $local_tag > /tmp/sfantao-containers/$o_prefix.tar
+
+    # # Create SIF image
+    # SINGULARITY_TMPDIR=/tmp/sfantao-containers/.tmp \
+    #   SINGULARITY_NOHTTPS=1 \
+    #   singularity build --fix-perms \
+    #   /tmp/sfantao-containers/$o_prefix.sif \
+    #   docker-archive:///tmp/sfantao-containers/$o_prefix.tar
+
+    # # Compress 
+    # xz --keep -z -T16 /tmp/sfantao-containers/$o_prefix.tar
+
+    # (cd /tmp/sfantao-containers/ ; sha256sum $o_prefix.tar.xz $o_prefix.tar $o_prefix.sif > $o_prefix.checksum)
+
+    # # o_tarname="s3://sfantao-containers/$o_prefix.tar.xz"
+    # # o_sifname="s3://sfantao-containers/$o_prefix.sif"
+
+    # # # Upload compressed tarball
+    # # docker save $local_tag | xz -z -T32 -c | s3cmd put - $o_tarname
+
+    # # # Upload SIF image
+    # # s3cmd put /tmp/samantao-containers/$o_prefix.sif $o_tarname
+    #  set +x
+    # continue
+
+    #
     # Push images
     #
     # remote_tag=sfantao/$line
     # docker tag $local_tag $remote_tag
     # docker push $remote_tag
     
-    if ssh lumi "[[ ! -f ${tarf} ]]" ; then
-      echo "Uploading ${tarf}"
-      docker save $local_tag | xz -z -T32 -c | ssh lumi "bash -c 'rm -rf ${rf1}*.tar ; xz -d -c > ${tarf}'"
-    else
-      echo "File ${tarf} exists!"
-    fi
+    # if ssh lumi "[[ ! -f ${tarf} ]]" ; then
+    #   echo "Uploading ${tarf}"
+    #   docker save $local_tag | xz -z -T32 -c | ssh lumi "bash -c 'rm -rf ${rf1}*.tar ; xz -d -c > ${tarf}'"
+    # else
+    #   echo "File ${tarf} exists!"
+    # fi
 
     #
     # Build singularity images remotely if they do not exist.
     #
-    ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
+    # ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
 
     #
     # Add entry to test script.
@@ -184,5 +220,5 @@ done
 
 rm -rf test.tar 
 tar -cf test.tar $(cat .all-test-files)
-scp test.tar lumi:$LUMI_TEST_FOLDER
-ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
+# scp test.tar lumi:$LUMI_TEST_FOLDER
+# ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
