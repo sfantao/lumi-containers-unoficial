@@ -1,15 +1,11 @@
 #!/bin/bash -eux 
 set -o pipefail
 
-PYTHON_VERSION='3.10'
-PYTORCH_VERSION='2.3.0+rocm6.2.0'
-APEX_VERSION='release/1.3.0'
-TORCHVISION_VERSION='0.18.0+rocm6.2.0'
-TORCHDATA_VERSION='0.7.1'
-TORCHTEXT_VERSION='0.18.0'
-TORCHAUDIO_VERSION='2.3.0'
-CUPY_VERSION='13.2.0'
-MPI4PY_VERSION='3.1.6'
+PYTHON_VERSION='3.12'
+PYTORCH_VERSION='f0da167' # 2024-08-01 nightly release
+TORCHVISION_VERSION='61bd547' # 2024-08-03 nightly release
+FLASH_ATTENTION_VERSION='23a2b1c'
+TRITON_VERSION='c7a3a47' 
 
 cat \
   ../common/Dockerfile.header \
@@ -18,8 +14,6 @@ cat \
   ../common/Dockerfile.aws-ofi-rccl \
   ../common/Dockerfile.rccltest \
   $DOCKERFILE \
-  ../common/Dockerfile.cupy \
-  ../common/Dockerfile.mpi4py \
   ../common/Dockerfile.no-torch-libstdc++ \
   > $DOCKERFILE_TMP
 
@@ -28,13 +22,7 @@ $DOCKERBUILD \
   --build-arg SERVER_PORT=$SERVER_PORT \
   --build-arg PYTHON_VERSION=$PYTHON_VERSION \
   --build-arg PYTORCH_VERSION=$PYTORCH_VERSION \
-  --build-arg APEX_VERSION=$APEX_VERSION \
   --build-arg TORCHVISION_VERSION=$TORCHVISION_VERSION \
-  --build-arg TORCHDATA_VERSION=$TORCHDATA_VERSION \
-  --build-arg TORCHTEXT_VERSION=$TORCHTEXT_VERSION \
-  --build-arg TORCHAUDIO_VERSION=$TORCHAUDIO_VERSION \
-  --build-arg CUPY_VERSION=$CUPY_VERSION \
-  --build-arg MPI4PY_VERSION=$MPI4PY_VERSION \
   --build-arg PYTORCH_DEBUG=0 \
   --build-arg PYTORCH_RELWITHDEBINFO=0 \
   --progress=plain -t $TAG . 2>&1 | tee $LOG

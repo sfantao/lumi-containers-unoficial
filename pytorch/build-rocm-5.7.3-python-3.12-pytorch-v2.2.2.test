@@ -106,6 +106,12 @@ cd /myrun
 
 set -x
 
+ROCM_MAJOR_RELEASE=\$(echo \$ROCM_RELEASE | cut -d. -f1)
+
+if [ \$ROCM_MAJOR_RELEASE -lt 6 ] ; then
+  exit 0
+fi
+
 if python -c 'import mpi4py ; print(mpi4py.__version__)' ; then
   ROCR_VISIBLE_DEVICE=\$SLURM_LOCALID python -u use_cupy.py
 fi
@@ -266,6 +272,10 @@ cd /myrun
 \$WITH_CONDA
 set -x
 
+  if ! python -c 'import apex' ; then
+    exit 0
+  fi
+
   # Download on single rank
   # if [ \$SLURM_PROCID -eq 0 ] ; then
   #   python mnist-download.py
@@ -273,15 +283,18 @@ set -x
   # exit 0
 
   export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
-  export MIOPEN_USER_DB_PATH="/tmp/$(whoami)-miopen-cache-\$SLURM_NODEID"
-  export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
+  
+  if [[ \$ROCM_RELEASE != "6.2."* ]] ; then
+    export MIOPEN_USER_DB_PATH="/tmp/$(whoami)-miopen-cache-\$SLURM_NODEID"
+    export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
 
-  # Set MIOpen cache out of the home folder.
-  if [ \$SLURM_LOCALID -eq 0 ] ; then
-    rm -rf \$MIOPEN_USER_DB_PATH
-    mkdir -p \$MIOPEN_USER_DB_PATH
+    # Set MIOpen cache out of the home folder.
+    if [ \$SLURM_LOCALID -eq 0 ] ; then
+      rm -rf \$MIOPEN_USER_DB_PATH
+      mkdir -p \$MIOPEN_USER_DB_PATH
+    fi
+    sleep 3
   fi
-  sleep 3
   
   # Report affinity
   echo "Rank \$SLURM_PROCID --> \$(taskset -p \$\$)"
@@ -433,7 +446,7 @@ cd /myrun
 set -x
   # Disable xformers to make sure they don't interfere with flash attention testing.
   if python -c 'import vllm ; print(vllm.__version__)' ; then
-    ROCR_VISIBLE_DEVICES=\$SLURM_LOCALID python -u vllm_testcase.py
+    HIP_VISIBLE_DEVICES=\$SLURM_LOCALID python -u vllm_testcase.py
   fi
 EOF
 chmod +x run.sh

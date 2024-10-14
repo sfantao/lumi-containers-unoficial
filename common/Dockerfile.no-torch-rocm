@@ -1,0 +1,8 @@
+RUN $WITH_CONDA; set -eux ; \
+  cd $(dirname $(python -c "import torch; print(torch.__file__)"))/lib ; \
+  for i in * ; do if [ -f /opt/rocm/lib/$i ] ; then rm $i ; fi ; done ; \
+  for i in * ; do if [ -d /opt/rocm/lib/$i ] ; then rm -rf $i ; fi ; done
+
+RUN $WITH_CONDA; set -eux ; \
+  cd $(dirname $(python -c "import torch; print(torch.__file__)"))/lib ; \
+  for i in * ; do if [ -f /opt/amdgpu/lib64/$i ] ; then rm $i ; fi ; done

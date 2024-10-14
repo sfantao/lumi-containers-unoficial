@@ -4,7 +4,7 @@ set -o pipefail
 PYTHON_VERSION='3.12'
 JAX_VERSION='0.4.28'
 XLA_VERSION='rocm-jaxlib-v0.4.28-qa'
-JAXLIB_VERSION='rocm-jaxlib-v0.4.28 '
+JAXLIB_VERSION='rocm-jaxlib-v0.4.28'
 
 cat \
   ../common/Dockerfile.header \
@@ -14,6 +14,7 @@ cat \
   ../common/Dockerfile.rccltest \
   $DOCKERFILE \
   ../common/Dockerfile.jax \
+  ../common/Dockerfile.no-torch-libstdc++ \
   > $DOCKERFILE_TMP
 
 $DOCKERBUILD \

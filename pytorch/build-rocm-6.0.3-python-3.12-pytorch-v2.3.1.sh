@@ -8,6 +8,7 @@ TORCHVISION_VERSION='0.18.1+rocm6.0'
 TORCHDATA_VERSION='0.7.1'
 TORCHTEXT_VERSION='0.18.0'
 TORCHAUDIO_VERSION='2.3.1+rocm6.0'
+TRITON_VERSION=2.3.1
 CUPY_VERSION='13.2.0'
 MPI4PY_VERSION='3.1.6'
 
@@ -20,6 +21,7 @@ cat \
   $DOCKERFILE \
   ../common/Dockerfile.cupy \
   ../common/Dockerfile.mpi4py \
+  ../common/Dockerfile.no-torch-libstdc++ \
   > $DOCKERFILE_TMP
 
 $DOCKERBUILD \
@@ -34,6 +36,7 @@ $DOCKERBUILD \
   --build-arg TORCHAUDIO_VERSION=$TORCHAUDIO_VERSION \
   --build-arg CUPY_VERSION=$CUPY_VERSION \
   --build-arg MPI4PY_VERSION=$MPI4PY_VERSION \
+  --build-arg TRITON_VERSION=$TRITON_VERSION \
   --build-arg PYTORCH_DEBUG=0 \
   --build-arg PYTORCH_RELWITHDEBINFO=0 \
   --progress=plain -t $TAG . 2>&1 | tee $LOG

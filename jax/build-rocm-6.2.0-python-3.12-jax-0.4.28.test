@@ -37,3 +37,65 @@ for i in $(grep -r 'half     sum' res.log | tail -n5 | awk '{print $8}') ; do
     exit 1
   fi
 done
+
+
+#
+# Run JAX test
+#
+cat > jax_test.py << EOF
+import os
+import jax
+
+coordinator_address = os.getenv('MASTER_ADDRESS') + ':29999'
+process_id = int(os.getenv('SLURM_PROCID'))
+num_processes = int(os.getenv('SLURM_NPROCS'))
+local_device_ids = [int(os.getenv('SLURM_LOCALID'))]
+
+jax.distributed.initialize(
+  coordinator_address = coordinator_address,
+  process_id = process_id,
+  num_processes = num_processes,
+  local_device_ids = local_device_ids)
+
+print(f'jax.device_count = {jax.device_count()}')
+print(f'jax.local_device_count = {jax.local_device_count()}')
+
+xs = jax.numpy.ones(jax.local_device_count())
+r = jax.pmap(lambda x: jax.lax.psum(x, 'i'), axis_name='i')(xs)
+print(r)
+EOF
+
+rm -rf run.sh 
+cat > run.sh << EOF
+#!/bin/bash -e
+cd /myrun
+\$WITH_CONDA
+set -x
+
+  export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
+
+  if [[ \$ROCM_RELEASE != "6.2."* ]] ; then
+    export MIOPEN_USER_DB_PATH="/tmp/$(whoami)-miopen-cache-\$SLURM_NODEID"
+    export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
+
+    # Set MIOpen cache out of the home folder.
+    if [ \$SLURM_LOCALID -eq 0 ] ; then
+      rm -rf \$MIOPEN_USER_DB_PATH
+      mkdir -p \$MIOPEN_USER_DB_PATH
+    fi
+    sleep 3
+  fi
+  
+  # Report affinity
+  echo "Rank \$SLURM_PROCID --> \$(taskset -p \$\$)"
+
+  export MASTER_ADDRESS=$(scontrol show hostname "$SLURM_NODELIST" | head -n1)
+
+  python -u jax_test.py
+EOF
+chmod +x run.sh 
+
+$SCMD \
+    -B $(pwd):/myrun \
+    $1 \
+    /myrun/run.sh |& tee res.log

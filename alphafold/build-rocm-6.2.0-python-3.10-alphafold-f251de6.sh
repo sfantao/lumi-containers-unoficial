@@ -4,7 +4,7 @@ set -o pipefail
 PYTHON_VERSION='3.10'
 JAX_VERSION='0.4.28'
 XLA_VERSION='rocm-jaxlib-v0.4.28-qa'
-JAXLIB_VERSION='rocm-jaxlib-v0.4.28 '
+JAXLIB_VERSION='rocm-jaxlib-v0.4.28'
 ALPHAFOLD_VERSION='f251de6'
 ARIA2_VERSION='1.36.0'
 HHSUITE_VERSION='3.3.0'

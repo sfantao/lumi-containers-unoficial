@@ -2,12 +2,13 @@
 set -o pipefail
 
 PYTHON_VERSION='3.12'
-PYTORCH_VERSION='2.4.0+rocm6.1'
+PYTORCH_VERSION='2.4.1+rocm6.1'
 APEX_VERSION='release/1.4.0'
-TORCHVISION_VERSION='0.19.0+rocm6.1'
+TORCHVISION_VERSION='0.19.1+rocm6.1'
 TORCHDATA_VERSION='0.8.0'
 TORCHTEXT_VERSION='0.18.0'
-TORCHAUDIO_VERSION='2.4.0+rocm6.1'
+TORCHAUDIO_VERSION='2.4.1+rocm6.1'
+VLLM_VERSION='v0.6.1.post1+rocm'
 CUPY_VERSION='13.2.0'
 MPI4PY_VERSION='3.1.6'
 
@@ -20,6 +21,8 @@ cat \
   $DOCKERFILE \
   ../common/Dockerfile.cupy \
   ../common/Dockerfile.mpi4py \
+  ../common/Dockerfile.no-torch-libstdc++ \
+  ../common/Dockerfile.no-torch-rocm \
   > $DOCKERFILE_TMP
 
 $DOCKERBUILD \
@@ -32,6 +35,7 @@ $DOCKERBUILD \
   --build-arg TORCHDATA_VERSION=$TORCHDATA_VERSION \
   --build-arg TORCHTEXT_VERSION=$TORCHTEXT_VERSION \
   --build-arg TORCHAUDIO_VERSION=$TORCHAUDIO_VERSION \
+  --build-arg VLLM_VERSION=$VLLM_VERSION \
   --build-arg CUPY_VERSION=$CUPY_VERSION \
   --build-arg MPI4PY_VERSION=$MPI4PY_VERSION \
   --build-arg PYTORCH_DEBUG=0 \

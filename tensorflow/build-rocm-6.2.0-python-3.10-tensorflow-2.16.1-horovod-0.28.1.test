@@ -180,27 +180,25 @@ cd /myrun
 \$WITH_CONDA
 set -x
 
-  # Download on single rank
-  # if [ \$SLURM_PROCID -eq 0 ] ; then
-  #   python mnist-download.py
-  # fi
-  # exit 0
-
   export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
-  export MIOPEN_USER_DB_PATH="/tmp/$(whoami)-miopen-cache-\$SLURM_NODEID"
-  export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
 
-  # Set MIOpen cache out of the home folder.
-  if [ \$SLURM_LOCALID -eq 0 ] ; then
-    rm -rf \$MIOPEN_USER_DB_PATH
-    mkdir -p \$MIOPEN_USER_DB_PATH
+  if [[ \$ROCM_RELEASE != "6.2."* ]] ; then
+    export MIOPEN_USER_DB_PATH="/tmp/$(whoami)-miopen-cache-\$SLURM_NODEID"
+    export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
+
+    # Set MIOpen cache out of the home folder.
+    if [ \$SLURM_LOCALID -eq 0 ] ; then
+      rm -rf \$MIOPEN_USER_DB_PATH
+      mkdir -p \$MIOPEN_USER_DB_PATH
+    fi
+    sleep 3
   fi
-  sleep 3
   
   # Report affinity
   echo "Rank \$SLURM_PROCID --> \$(taskset -p \$\$)"
   
-  python -u tensorflow2_synthetic_benchmark.py --batch-size 256
+  TF_USE_LEGACY_KERAS=1 \
+    python -u tensorflow2_synthetic_benchmark.py --batch-size 256
 EOF
 chmod +x run.sh 
 

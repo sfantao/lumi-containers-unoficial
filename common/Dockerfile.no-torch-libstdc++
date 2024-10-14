@@ -1,0 +1,3 @@
+# Use container libstdc++.so
+RUN $WITH_CONDA; set -eux ; \
+  rm $CONDA_PREFIX/lib/libstdc++.*

@@ -85,8 +85,23 @@ RUN $WITH_CONDA; set -eux ; \
 RUN $WITH_CONDA; set -eux ; \
   ln -s $(which gcc-12) /opt/rust/bin/cc ; \
   CC=gcc-12 CXX=g++-12 \
-  DS_BUILD_OPS=1 \
-  pip install deepspeed==0.14.5 --global-option="build_ext" --global-option="-j32" ; \
+  DS_BUILD_AIO=0 \
+  DS_BUILD_CCL_COMM=1 \
+  DS_BUILD_CPU_ADAM=1 \
+  DS_BUILD_CPU_LION=1 \
+  DS_BUILD_EVOFORMER_ATTN=0 \
+  DS_BUILD_FUSED_ADAM=1 \
+  DS_BUILD_FUSED_LION=1 \
+  DS_BUILD_CPU_ADAGRAD=0 \
+  DS_BUILD_FUSED_LAMB=1 \
+  DS_BUILD_QUANTIZER=0 \
+  DS_BUILD_RANDOM_LTD=0 \
+  DS_BUILD_SPARSE_ATTN=0 \
+  DS_BUILD_TRANSFORMER=0 \
+  DS_BUILD_TRANSFORMER_INFERENCE=0 \
+  DS_BUILD_STOCHASTIC_TRANSFORMER=1 \
+  DS_ACCELERATOR=cuda \
+  pip install deepspeed==0.15.1 --global-option="build_ext" --global-option="-j32" ; \
   ds_report ; \
   true
 
@@ -166,3 +181,34 @@ RUN $WITH_CONDA; set -eux ; \
     sentencepiece==0.2.0 \
     protobuf==5.27.1 \
     accelerate==0.31.0 
+
+#
+# VLLM
+#
+ARG VLLM_VERSION
+RUN $WITH_CONDA ; set -eux ; \
+  git clone --recursive -b $VLLM_VERSION https://github.com/rocm/vllm /opt/mybuild ; \
+  \
+  cd /opt/mybuild ; \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  cd /opt/mybuild/gradlib ; \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  rm -rf /opt/mybuild
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install \
+    /opt/wheels/gradlib-*.whl \
+    /opt/wheels/vllm-*.whl
+
+#
+# Pytorch default lib segfaults during initialization, so we use the container install one.
+#
+RUN $WITH_CONDA; set -eux ; \
+  cd $(dirname $(python -c "import torch; print(torch.__file__)"))/lib ; \
+  for i in librccl.so ; do if [ -f /opt/rocm/lib/$i ] ; then rm $i ; fi ; done

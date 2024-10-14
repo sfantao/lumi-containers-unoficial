@@ -119,24 +119,27 @@ RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/flash_attn-*.whl
 
 #
-# xformers - tested with 7a04357
+# xformers - tried with 7a04357 - Xformers tends to follow latest Pytorch so we won't try to support that in older versions.
 #
-RUN $WITH_CONDA; set -eux ; \
-  git clone --recursive -b develop https://github.com/ROCm/xformers /opt/mybuild ; \
-  cd /opt/mybuild ; \
-  \
-  rm -rf build ; \
-  CC=gcc-12 \
-  CXX=g++-12 \
-  HIP_ARCHITECTURES="gfx90a" \
-  PYTORCH_ROCM_ARCH="gfx90a" \
-  python setup.py bdist_wheel ; \
-  cp -rf dist/* /opt/wheels ; \
-  \
-  rm -rf /opt/mybuild 
+# RUN $WITH_CONDA; set -eux ; \
+#   git clone --recursive -b develop https://github.com/ROCm/xformers /opt/mybuild ; \
+#   cd /opt/mybuild ; \
+#   git checkout -b mydev 7a04357 ; \
+#   git submodule sync ; \
+#   git submodule update --init --recursive --jobs 0 ; \
+#   \
+#   rm -rf build ; \
+#   CC=gcc-12 \
+#   CXX=g++-12 \
+#   HIP_ARCHITECTURES="gfx90a" \
+#   PYTORCH_ROCM_ARCH="gfx90a" \
+#   python setup.py bdist_wheel ; \
+#   cp -rf dist/* /opt/wheels ; \
+#   \
+#   rm -rf /opt/mybuild 
 
-RUN $WITH_CONDA; set -eux ; \
-  pip install /opt/wheels/xformers-*.whl
+# RUN $WITH_CONDA; set -eux ; \
+#   pip install /opt/wheels/xformers-*.whl
 
 RUN $WITH_CONDA; set -eux ; \
   pip install \
@@ -174,3 +177,4 @@ RUN $WITH_CONDA; set -eux ; \
     sentencepiece==0.2.0 \
     protobuf==5.27.1 \
     accelerate==0.31.0 
+    

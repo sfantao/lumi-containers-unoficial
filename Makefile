@@ -20,10 +20,10 @@ mpi4py: mpi4py/build-rocm-6.2.0-python-3.12-mpi4py-3.1.6.done
 
 pytorch_deps := pytorch/build-rocm-5.7.3-python-3.12-pytorch-v2.2.2.done
 pytorch_deps += pytorch/build-rocm-6.0.3-python-3.12-pytorch-v2.3.1.done
-pytorch_deps += pytorch/build-rocm-6.1.3-python-3.12-pytorch-v2.4.0.done
+pytorch_deps += pytorch/build-rocm-6.1.3-python-3.12-pytorch-v2.4.1.done
 pytorch_deps += pytorch/build-rocm-6.2.0-python-3.10-pytorch-v2.3.0.done
-pytorch_deps += pytorch/build-rocm-6.2.0-python-3.12-pytorch-20240801-vllm-baaedfd.done
-
+pytorch_deps += pytorch/build-rocm-6.2.0-python-3.12-pytorch-20240801-vllm-c7a3a47.done
+pytorch_deps += pytorch/build-rocm-6.2.1-python-3.12-pytorch-20240918-vllm-4075b35.done
 pytorch: $(pytorch_deps)
 
 tensorflow: tensorflow/build-rocm-6.2.0-python-3.10-tensorflow-2.16.1-horovod-0.28.1.done
@@ -31,7 +31,11 @@ tensorflow: tensorflow/build-rocm-6.2.0-python-3.10-tensorflow-2.16.1-horovod-0.
 rocm_deps := rocm/build-rocm-5.7.3.done
 rocm_deps += rocm/build-rocm-6.0.3.done
 rocm_deps += rocm/build-rocm-6.1.3.done
+rocm_deps += rocm/build-rocm-asan-6.1.3.done
 rocm_deps += rocm/build-rocm-6.2.0.done
+rocm_deps += rocm/build-rocm-6.2.1.done
+rocm_deps += rocm/build-rocm-6.2.2.done
+rocm_deps += rocm/build-rocm-asan-6.2.2.done
 rocm: $(rocm_deps)
 
 jax: jax/build-rocm-6.2.0-python-3.12-jax-0.4.28.done

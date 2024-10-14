@@ -1,0 +1,152 @@
+#
+# Install conda environment
+# 
+ARG PYTHON_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  conda create -n pytorch python=$PYTHON_VERSION ; \
+  conda activate pytorch ; \
+  conda install -y ninja pillow cmake pyyaml
+
+# Don't use old libstdc++ that comes with conda.
+RUN $WITH_CONDA; set -eux ; \
+  rm /opt/miniconda3/envs/pytorch/lib/libstdc++.so.*
+
+ENV WITH_CONDA "source /opt/miniconda3/bin/activate pytorch"
+
+# Repository for the wheel files
+RUN set -eux ; \
+  mkdir /opt/wheels
+
+# Build LLVM so that we can build aotriton.
+# The LLVM hash comes from /opt/mybuild/build/aotriton/src/third_party/triton/llvm-hash.txt
+# In this case: 49af6502c6dcb4a7f7520178bd14df396f78240c.
+ARG LLVM_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  git clone --recursive https://github.com/llvm/llvm-project /opt/llvm-src ; \
+  cd /opt/llvm-src ; \
+  git checkout -b mydev $LLVM_VERSION ; \
+  git submodule sync ; \
+  git submodule update --init --recursive --jobs 0 ; \
+  mkdir /opt/llvm-src/build ; \
+  cd /opt/llvm-src/build ; \
+  cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON /opt/llvm-src/llvm -DLLVM_ENABLE_PROJECTS="mlir;llvm" -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" -DCMAKE_INSTALL_PREFIX=/opt/llvm ; \
+  ninja ; \
+  ninja install ; \
+  rm -rf /opt/llvm-src ; \
+  true
+
+ENV LLVM_INCLUDE_DIRS /opt/llvm/include
+ENV LLVM_LIBRARY_DIR /opt/llvm/lib
+ENV LLVM_SYSPATH /opt/llvm
+
+#
+# Install pytorch
+# 
+
+ARG PYTORCH_VERSION
+ARG TORCHVISION_VERSION
+
+RUN $WITH_CONDA; set -eux ; \
+  python3 -m pip install --pre \
+  torch==$PYTORCH_VERSION \
+  setuptools-scm>=8 \
+  torchvision==$TORCHVISION_VERSION \
+  --extra-index-url https://download.pytorch.org/whl/nightly/rocm6.2
+  
+#
+# AMD-SMI
+#
+RUN $WITH_CONDA; set -eux ; \
+  cd $ROCM_PATH/share/amd_smi ; \
+  python3 -m pip wheel . --wheel-dir=/opt/wheels
+
+#
+# Flash-Attention
+#
+ARG FLASH_ATTENTION_VERSION
+
+RUN $WITH_CONDA; set -eux ; \
+  git clone https://github.com/ROCm/flash-attention.git /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout $FLASH_ATTENTION_VERSION ; \
+  git submodule sync ; \
+  git submodule update --init --recursive --jobs 0 ; \
+  MAX_JOBS=48 \
+    GPU_ARCHS=gfx90a \
+    CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  cd / ; rm -rf /opt/mybuild 
+
+#
+# Triton wheel build stage
+#
+RUN $WITH_CONDA; set -eux ; \
+  pip install pybind11
+  
+ARG TRITON_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  git clone https://github.com/OpenAI/triton.git /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout $TRITON_VERSION ; \
+  cd /opt/mybuild/python ; \
+  \
+  unset LLVM_INCLUDE_DIRS ; \
+  unset LLVM_LIBRARY_DIR ; \
+  unset LLVM_SYSPATH ; \
+  \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  cd / ; rm -rf /opt/mybuild 
+
+#
+# vLLM
+#
+RUN $WITH_CONDA; set -eux ; \
+  python3 -m pip install --upgrade numba scipy huggingface-hub[cli]
+
+# Workaround for ray >= 2.10.0
+ENV RAY_EXPERIMENTAL_NOSET_ROCR_VISIBLE_DEVICES=1
+
+# Silences the HF Tokenizers warning
+ENV TOKENIZERS_PARALLELISM=false
+
+# Make sure punica kernels are built (for LoRA)
+ENV VLLM_INSTALL_PUNICA_KERNELS=1
+
+# Performance environment variable.
+ENV HIP_FORCE_DEV_KERNARG=1
+
+# Using the ROCm fork and enabling python 3.12
+ARG VLLM_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  git clone https://github.com/rocm/vllm /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout -b mydev $VLLM_VERSION ; \
+  \
+  git submodule sync ; \
+  git submodule update --init --recursive --jobs 0 ; \
+  \
+  sed -i 's#3.11#3.12#g' CMakeLists.txt ; \
+  \
+  python3 -m pip install -r requirements-rocm.txt ; \
+  \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  cd /opt/mybuild/gradlib ; \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  rm -rf /opt/mybuild
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install \
+    /opt/wheels/amdsmi-*.whl \
+    /opt/wheels/flash_attn-*.whl \
+    /opt/wheels/triton-*.whl \
+    /opt/wheels/gradlib-*.whl \
+    /opt/wheels/vllm-*.whl

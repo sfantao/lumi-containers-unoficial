@@ -96,7 +96,7 @@ export SCMD="srun \
   singularity exec \
     -B /var/spool/slurmd \
     -B /opt/cray \
-    -B /usr/lib64/libcxi.so.1
+    -B /usr/lib64/libcxi.so.1"
 EOF
 
 if [[ "$target" == "all" ]] ; then
@@ -168,9 +168,10 @@ for i in $files ; do
     #
     # Push images
     #
-    # remote_tag=sfantao/$line
-    # docker tag $local_tag $remote_tag
-    # docker push $remote_tag
+    remote_tag=localhost:34567/$local_tag
+    remote_tag_default=localhost:5000/$local_tag
+    docker tag $local_tag $remote_tag
+    docker push $remote_tag
     
     # if ssh lumi "[[ ! -f ${tarf} ]]" ; then
     #   echo "Uploading ${tarf}"
@@ -182,7 +183,8 @@ for i in $files ; do
     #
     # Build singularity images remotely if they do not exist.
     #
-    # ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
+    #ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
+    ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker://${remote_tag_default} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ; fi'"
 
     #
     # Add entry to test script.
@@ -212,13 +214,13 @@ for i in $files ; do
       echo "###################"
     fi
     \cd -
-
-
 EOF
+
   done < $i
 done
 
 rm -rf test.tar 
 tar -cf test.tar $(cat .all-test-files)
-# scp test.tar lumi:$LUMI_TEST_FOLDER
-# ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
+scp test.tar lumi:$LUMI_TEST_FOLDER
+#ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
+#ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
