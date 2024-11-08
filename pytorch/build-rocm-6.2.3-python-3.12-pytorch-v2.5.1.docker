@@ -1,0 +1,218 @@
+#
+# Install conda environment
+# 
+ARG PYTHON_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  conda create -n pytorch python=$PYTHON_VERSION ; \
+  conda activate pytorch ; \
+  conda install -y ninja pillow cmake pyyaml
+ENV WITH_CONDA "source /opt/miniconda3/bin/activate pytorch"
+
+# Repository for the wheel files
+RUN set -eux ; \
+  mkdir /opt/wheels
+  
+#
+# Install pytorch
+# 
+
+# PyTorch comes with RCCL from ROCm 6.0.0 which cause a segmentation fault 
+# in the tests. It's supspected it's related to https://github.com/ROCm/rccl/pull/1153
+# Copying the RCCL library from /opt/rocm, solve the issue.
+
+ENV PYTORCH_ROCM_ARCH gfx90a 
+ARG PYTORCH_VERSION
+ARG PYTORCH_DEBUG
+ARG PYTORCH_RELWITHDEBINFO
+
+RUN $WITH_CONDA; set -eux ; \
+  pip3 install --pre torch==${PYTORCH_VERSION} --index-url https://download.pytorch.org/whl/ ; \
+  cp /opt/rocm/lib/librccl.so $(dirname $(python -c 'import torch; print(torch.__file__)'))/lib
+
+#
+# Pytorch dependencies
+#
+ARG APEX_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  git clone -b $APEX_VERSION --recursive https://github.com/rocm/apex /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  CC=gcc-12, CXX=g++-12 nice python setup.py bdist_wheel --cpp_ext --cuda_ext ; \
+  cp -rf dist/* /opt/wheels ; \
+  rm -rf /opt/mybuild 
+  
+RUN $WITH_CONDA; set -eux ; \
+  pip install /opt/wheels/apex-*.whl
+
+ARG TORCHVISION_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip3 install --pre torchvision==$TORCHVISION_VERSION --index-url https://download.pytorch.org/whl/
+
+#
+# AMD-SMI
+#
+RUN $WITH_CONDA; set -eux ; \
+  cd $ROCM_PATH/share/amd_smi ; \
+  python3 -m pip wheel . --wheel-dir=/opt/wheels ; \
+  pip install /opt/wheels/amdsmi-*.whl
+
+ARG TORCHDATA_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip3 install --pre torchdata==$TORCHDATA_VERSION --index-url https://download.pytorch.org/whl/
+   
+ARG TORCHTEXT_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip3 install --pre torchtext==$TORCHTEXT_VERSION --index-url https://download.pytorch.org/whl/
+
+ARG TORCHAUDIO_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip3 install --pre torchaudio==${TORCHAUDIO_VERSION} --index-url https://download.pytorch.org/whl/
+
+#
+# Deepspeed
+#
+ENV RUSTUP_HOME /opt/rust
+ENV CARGO_HOME /opt/rust
+RUN set -eux ; \
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /opt/rust.sh ; \
+  sh /opt/rust.sh -y --no-modify-path ; \
+  rm -rf /opt/rust.sh
+
+ENV PATH $PATH:/opt/rust/bin
+
+RUN $WITH_CONDA; set -eux ; \
+  conda install -y  -c conda-forge oneccl-devel
+
+RUN $WITH_CONDA; set -eux ; \
+  ln -s $(which gcc-12) /opt/rust/bin/cc ; \
+  CC=gcc-12 CXX=g++-12 \
+  DS_BUILD_AIO=0 \
+  DS_BUILD_CCL_COMM=1 \
+  DS_BUILD_CPU_ADAM=1 \
+  DS_BUILD_CPU_LION=1 \
+  DS_BUILD_EVOFORMER_ATTN=0 \
+  DS_BUILD_FUSED_ADAM=1 \
+  DS_BUILD_FUSED_LION=1 \
+  DS_BUILD_CPU_ADAGRAD=0 \
+  DS_BUILD_FUSED_LAMB=1 \
+  DS_BUILD_QUANTIZER=0 \
+  DS_BUILD_RANDOM_LTD=0 \
+  DS_BUILD_SPARSE_ATTN=0 \
+  DS_BUILD_TRANSFORMER=0 \
+  DS_BUILD_TRANSFORMER_INFERENCE=0 \
+  DS_BUILD_STOCHASTIC_TRANSFORMER=1 \
+  DS_ACCELERATOR=cuda \
+  pip install deepspeed==0.15.1 --global-option="build_ext" --global-option="-j32" ; \
+  ds_report ; \
+  true
+
+#
+# flash-attention - tested with 478ee66
+#
+RUN $WITH_CONDA; set -eux ; \
+  git clone --recursive https://github.com/Dao-AILab/flash-attention /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  cp -rf benchmarks /opt/wheels/flash_attn-benchmarks ; \
+  \
+  rm -rf build ; \
+  CC=gcc-12 \
+  CXX=g++-12 \
+  GPU_ARCHS="gfx90a" \
+    python setup.py bdist_wheel ; \
+  cp -rf dist/* /opt/wheels ; \
+  \
+  rm -rf /opt/mybuild 
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install /opt/wheels/flash_attn-*.whl
+
+#
+# xformers - tested with 06b548c
+#
+RUN $WITH_CONDA; set -eux ; \
+  git clone --recursive -b develop https://github.com/ROCm/xformers /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  \
+  rm -rf build ; \
+  CC=gcc-12 \
+  CXX=g++-12 \
+  HIP_ARCHITECTURES="gfx90a" \
+  PYTORCH_ROCM_ARCH="gfx90a" \
+  python setup.py bdist_wheel ; \
+  cp -rf dist/* /opt/wheels ; \
+  \
+  rm -rf /opt/mybuild 
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install /opt/wheels/xformers-*.whl
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install \
+    scipy==1.12.0 \
+    matplotlib==3.8.2 \
+    pandas==2.2.0 \
+    seaborn==0.13.2
+
+# 
+# Bits and bytes - tested with 4aad810
+#
+RUN $WITH_CONDA; set -eux ; \ 
+  git clone https://github.com/ROCm/bitsandbytes /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout -b mydev 43d3976 ; \
+  pip install -r requirements-dev.txt ; \
+  cmake -DCOMPUTE_BACKEND=hip -DBNB_ROCM_ARCH="gfx90a" -S . ; \
+  nice make -j ; \
+  python setup.py bdist_wheel ; \
+  cp dist/bitsandbytes-*.whl /opt/wheels ; \
+  \
+  cd / ; \
+  rm -rf /opt/mybuild ; \
+  true
+
+RUN $WITH_CONDA; set -eux ; \ 
+  pip install /opt/wheels/bitsandbytes-*.whl
+
+#
+# Some other packages we may need
+#
+RUN $WITH_CONDA; set -eux ; \ 
+  pip install \
+    transformers==4.41.2 \
+    sentencepiece==0.2.0 \
+    protobuf==5.27.1 \
+    accelerate==0.31.0 
+
+#
+# VLLM
+#
+RUN $WITH_CONDA; set -eux ; \ 
+  pip install \
+    setuptools_scm
+
+ARG VLLM_VERSION
+RUN $WITH_CONDA ; set -eux ; \
+  git clone --recursive -b $VLLM_VERSION https://github.com/rocm/vllm /opt/mybuild ; \
+  \
+  cd /opt/mybuild ; \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  cd /opt/mybuild/gradlib ; \
+  CC=gcc-12 \
+    CXX=g++-12 \
+    python3 setup.py bdist_wheel --dist-dir=/opt/wheels ; \
+  \
+  rm -rf /opt/mybuild
+
+RUN $WITH_CONDA; set -eux ; \
+  pip install \
+    /opt/wheels/gradlib-*.whl \
+    /opt/wheels/vllm-*.whl
+
+#
+# Pytorch default lib segfaults during initialization, so we use the container install one.
+#
+RUN $WITH_CONDA; set -eux ; \
+  cd $(dirname $(python -c "import torch; print(torch.__file__)"))/lib ; \
+  for i in librccl.so ; do if [ -f /opt/rocm/lib/$i ] ; then rm $i ; fi ; done

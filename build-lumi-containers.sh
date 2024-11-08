@@ -133,6 +133,9 @@ for i in $files ; do
     tarf="${rf1}${rf2}.tar"
     sif="${rf1}${rf2}.sif"
 
+    echo "$tarf"
+    continue
+
     #
     # Push to lumi-o
     #
@@ -173,12 +176,12 @@ for i in $files ; do
     docker tag $local_tag $remote_tag
     docker push $remote_tag
     
-    # if ssh lumi "[[ ! -f ${tarf} ]]" ; then
-    #   echo "Uploading ${tarf}"
-    #   docker save $local_tag | xz -z -T32 -c | ssh lumi "bash -c 'rm -rf ${rf1}*.tar ; xz -d -c > ${tarf}'"
-    # else
-    #   echo "File ${tarf} exists!"
-    # fi
+      # if ssh lumi "[[ ! -f ${tarf} ]]" ; then
+      #   echo "Uploading ${tarf}"
+      #   docker save $local_tag | xz -z -T32 -c | ssh lumi "bash -c 'rm -rf ${rf1}*.tar ; xz -d -c > ${tarf}'"
+      # else
+      #   echo "File ${tarf} exists!"
+      # fi
 
     #
     # Build singularity images remotely if they do not exist.
@@ -219,8 +222,8 @@ EOF
   done < $i
 done
 
-rm -rf test.tar 
-tar -cf test.tar $(cat .all-test-files)
-scp test.tar lumi:$LUMI_TEST_FOLDER
+# rm -rf test.tar 
+# tar -cf test.tar $(cat .all-test-files)
+# scp test.tar lumi:$LUMI_TEST_FOLDER
 #ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
 #ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
