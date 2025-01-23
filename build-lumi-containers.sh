@@ -99,10 +99,16 @@ export SCMD="srun \
     -B /usr/lib64/libcxi.so.1"
 EOF
 
-if [[ "$target" == "all" ]] ; then
-  files=$(ls -1 */*.done)
-else
-  files=$(ls -1 $target/*.done)
+
+files='pytorch/build-rocm-6.1.3-python-3.12-pytorch-v2.4.1.done'
+files=''
+
+if [[ "$files" == '' ]] ; then
+  if [[ "$target" == "all" ]] ; then
+    files=$(ls -1 */build-*.done)
+  else
+    files=$(ls -1 $target/build-*.done)
+  fi
 fi
 
 # Temp folder
@@ -134,23 +140,30 @@ for i in $files ; do
     sif="${rf1}${rf2}.sif"
 
     echo "$tarf"
-    continue
 
     #
     # Push to lumi-o
     #
-    # set -x
-    # o_prefix="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
-   
-    # # Create tarball
-    # docker save $local_tag > /tmp/sfantao-containers/$o_prefix.tar
+    if [ 0 -eq 1 ] ; then
+      set -x
+      o_prefix="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
 
-    # # Create SIF image
-    # SINGULARITY_TMPDIR=/tmp/sfantao-containers/.tmp \
-    #   SINGULARITY_NOHTTPS=1 \
-    #   singularity build --fix-perms \
-    #   /tmp/sfantao-containers/$o_prefix.sif \
-    #   docker-archive:///tmp/sfantao-containers/$o_prefix.tar
+      if [ -f /tmp/sfantao-containers/$o_prefix.tar ] ; then
+        continue
+      fi
+    
+      # Create tarball
+      docker save $local_tag > /tmp/sfantao-containers/$o_prefix.tar
+
+      # Create SIF image
+      SINGULARITY_TMPDIR=/tmp/sfantao-containers/.tmp \
+        SINGULARITY_NOHTTPS=1 \
+        singularity build --fix-perms \
+        /tmp/sfantao-containers/$o_prefix.sif \
+        docker-archive:///tmp/sfantao-containers/$o_prefix.tar
+
+      continue
+    fi
 
     # # Compress 
     # xz --keep -z -T16 /tmp/sfantao-containers/$o_prefix.tar
@@ -186,8 +199,8 @@ for i in $files ; do
     #
     # Build singularity images remotely if they do not exist.
     #
-    #ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
-    ssh lumi2 "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker://${remote_tag_default} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ; fi'"
+    #ssh lumi "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
+    ssh lumi "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker://${remote_tag_default} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ; fi'"
 
     #
     # Add entry to test script.
@@ -222,8 +235,8 @@ EOF
   done < $i
 done
 
-# rm -rf test.tar 
-# tar -cf test.tar $(cat .all-test-files)
-# scp test.tar lumi:$LUMI_TEST_FOLDER
+rm -rf test.tar 
+tar -cf test.tar $(cat .all-test-files)
+scp test.tar lumi:$LUMI_TEST_FOLDER
 #ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
-#ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
+ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
