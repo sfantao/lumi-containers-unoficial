@@ -4,10 +4,10 @@
 # be equivalent.   
 #
 ARG MPI4PY_VERSION
-RUN $WITH_CONDA ; set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
+
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  $WITH_CONDA ; set -eux ; \
+  tar -C / -xf /h/cpe-$CPE_VERSION.tar ; \
   \
   mkdir /opt/builds ; \
   cd /opt/builds ; \

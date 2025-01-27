@@ -1,6 +1,11 @@
 
-ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/6.1.3/sle/15.5/amdgpu-install-6.1.60103-1.noarch.rpm
-ENV ROCM_RELEASE 6.1.3
+ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/6.2.4/sle/15.5/amdgpu-install-6.2.60204-1.noarch.rpm
+ENV ROCM_RELEASE 6.2.4
+
+# Add the devel repo to install libtbb12 required by rocrand
+RUN set -eux ; \
+  zypper -n addrepo https://download.opensuse.org/repositories/devel:/libraries:/c_c++/15.5/ myrepo5 ; \
+  echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo5.repo
 
 RUN set -eux ; \
   zypper --no-gpg-checks -n install $ROCM_RPM
@@ -11,13 +16,17 @@ RUN set -eux ; \
 RUN set -eux ; \
   zypper --no-gpg-checks -n install --oldpackage libsystemd0-249.16 libudev1-249.16
 
-# This version install returns an 106 error while postprocessing kernel modules.
 RUN set -eux ; \
-  amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE
+  zypper refresh ; \
+  amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE ; \
+  zypper cc -a
 
 RUN set -eux ; \
   zypper --no-gpg-checks -n install -y --force miopen-hip-gfx90akdb
 
+RUN set -eux ; \
+  zypper --no-gpg-checks -n install -y --force omniperf omnitrace
+  
 #
 # ROCm environment
 #

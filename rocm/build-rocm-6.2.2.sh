@@ -11,7 +11,6 @@ cat \
 
 $DOCKERBUILD \
   -f $DOCKERFILE_TMP \
-  --build-arg SERVER_PORT=$SERVER_PORT \
-  --progress=plain -t $TAG . 2>&1 | tee $LOG
+  -t $TAG . 2>&1 | tee $LOG
 
 echo "$TAG" > $RES

@@ -25,7 +25,6 @@ cat \
 
 $DOCKERBUILD \
   -f $DOCKERFILE_TMP \
-  --build-arg SERVER_PORT=$SERVER_PORT \
   --build-arg PYTHON_VERSION=$PYTHON_VERSION \
   --build-arg PYTORCH_VERSION=$PYTORCH_VERSION \
   --build-arg APEX_VERSION=$APEX_VERSION \
@@ -37,6 +36,6 @@ $DOCKERBUILD \
   --build-arg MPI4PY_VERSION=$MPI4PY_VERSION \
   --build-arg PYTORCH_DEBUG=0 \
   --build-arg PYTORCH_RELWITHDEBINFO=0 \
-  --progress=plain -t $TAG . 2>&1 | tee $LOG
+  -t $TAG . 2>&1 | tee $LOG
 
 echo "$TAG" > $RES

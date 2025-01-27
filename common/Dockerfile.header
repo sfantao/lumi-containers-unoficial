@@ -1,10 +1,4 @@
-#FROM registry.suse.com/bci/bci-base:15.3.17.20.5
-#FROM registry.suse.com/bci/bci-base:15.3.17.20.101
-#FROM registry.suse.com/bci/bci-base:15.3.17.20.145
-#FROM registry.suse.com/bci/bci-base:15.4.27.14.99
 FROM registry.suse.com/bci/bci-base:15.5.36.14.13
-
-ARG SERVER_PORT
 
 #
 # Disable BCI repros
@@ -31,15 +25,13 @@ RUN set -eux; \
     git cmake gcc12 gcc12-c++ gcc12-fortran zlib-devel numactl awk patch tar autoconf automake libtool libjson-c-devel graphviz ncurses-devel nano which libjansson4 libnl3-200; \
   zypper clean
 
-
 #
 # Cray info
 #
 ENV CPE_VERSION "24.03"
-ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
-ENV LIBFABRIC_VERSION "1.15.2.0" 
+ENV LIBFABRIC_VERSION "1.15.2.0"
 ENV LIBFABRIC_PATH /opt/cray/libfabric/$LIBFABRIC_VERSION
 ENV MPICH_PATH "/opt/cray/pe/mpich/8.1.29/ofi/crayclang/17.0"
-ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
+ENV LD_LIBRARY_PATH $LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
 
-ENV REMOVE_CRAY_DEPS 'rm -rf /opt/cray /opt/cray-deps /usr/lib64/libcxi.so*'
+ENV REMOVE_CRAY_DEPS 'rm -rf /opt/cray /usr/lib64/libcxi.so*'

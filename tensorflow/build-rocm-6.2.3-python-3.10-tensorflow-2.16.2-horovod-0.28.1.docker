@@ -9,7 +9,7 @@ ENV WITH_CONDA "source /opt/miniconda3/bin/activate tensorflow"
 
 ARG TENSORFLOW_VERSION
 RUN $WITH_CONDA; set -eux ; \
-  pip install tensorflow-rocm==$TENSORFLOW_VERSION -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.2/
+  pip install tensorflow-rocm==$TENSORFLOW_VERSION -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.2.3/
 
 ARG TF_KERAS_VERSION
 RUN $WITH_CONDA; set -eux ; \
@@ -22,10 +22,10 @@ RUN $WITH_CONDA; set -eux ; \
   pip install cmake
 
 ARG HOROVOD_VERSION
-RUN $WITH_CONDA ; set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  $WITH_CONDA ; set -eux ; \
+  tar -C / -xf /h/cpe-$CPE_VERSION.tar ; \
+  \
   cd $MPICH_PATH/../.. ; \
   ln -s crayclang cray ; \
   \

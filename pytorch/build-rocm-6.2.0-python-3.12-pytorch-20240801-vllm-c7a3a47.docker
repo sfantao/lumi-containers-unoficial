@@ -130,7 +130,7 @@ RUN $WITH_CONDA; set -eux ; \
   git checkout 23a2b1c ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
-  MAX_JOBS=48 \
+  MAX_JOBS=32 \
     GPU_ARCHS=gfx90a \
     CC=gcc-12 \
     CXX=g++-12 \

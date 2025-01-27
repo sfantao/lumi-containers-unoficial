@@ -1,0 +1,59 @@
+#
+# Set the compiler for the builds to be GCC 10.
+#
+RUN set -eux ; \ 
+  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 50  ; \
+  update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 50  ; \
+  true
+
+ENV CC gcc
+ENV CXX g++
+
+#
+# Install build dependencies
+#
+RUN set -eux; \
+  zypper -n refresh ; \
+  zypper --no-gpg-checks -n install -y --force-resolution \
+    xz binutils-gold bazel ; \
+  zypper clean
+
+RUN $WITH_CONDA; set -eux ; \
+  conda install -y \
+    swig \
+    numpy \
+    Cython \
+    pandas \
+  ; \
+  pip install \
+    build \
+  ; \  
+  true
+
+#
+# Install JAX
+#
+ARG JAXLIB_VERSION
+ARG XLA_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  git clone -b $XLA_VERSION https://github.com/rocm/xla /opt/xla ; \
+  git clone -b $JAXLIB_VERSION https://github.com/rocm/jax /opt/jax ; \
+  \
+  cd /opt/jax ; \
+  export TEST_TMPDIR=/opt/.bazel ; \
+  python build/build.py --enable_rocm --rocm_path=$ROCM_PATH \
+    --rocm_amdgpu_targets=gfx90a \
+    --bazel_options=--override_repository=xla=/opt/xla \
+    --bazel_options=--jobs=32 \
+    --bazel_startup_options=--host_jvm_args=-Xmx512m \
+    --bazel_startup_options=--host_jvm_args=-Xms256m ; \
+  mkdir -p /opt/wheels ; \
+  cp /opt/jax/dist/jaxlib-*.whl /opt/wheels ; \
+  rm -rf /opt/jax /opt/xla /opt/.bazel
+
+ARG JAX_VERSION
+RUN $WITH_CONDA; set -eux ; \
+  pip install /opt/wheels/jaxlib-*.whl; \
+  pip install jax==$JAX_VERSION
+  
+ENV JAX_PLATFORMS "rocm,cpu"

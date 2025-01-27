@@ -3,3 +3,5 @@
 /*/*.done
 /*/*.log
 /*/.tmp-*
+.all-test-files
+singularity-images

@@ -5,10 +5,9 @@ ENV OSU_PATH /opt/osu
 # We can't run MPI during configure phase as we don't really have MPI available at build time.
 # Therefore we trick configure to believe MPI exists and we just link during the build phase.
 #
-RUN set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  set -eux ; \
+  tar -C / -xf /h/cpe-$CPE_VERSION.tar ; \
   \
   mkdir /opt/builds ; \
   cd /opt/builds ; \

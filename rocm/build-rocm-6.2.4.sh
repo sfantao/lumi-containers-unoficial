@@ -3,7 +3,7 @@ set -o pipefail
 
 cat \
   ../common/Dockerfile.header \
-  ../common/Dockerfile.rocm-6.0.3  \
+  ../common/Dockerfile.rocm-6.2.4  \
   ../common/Dockerfile.aws-ofi-rccl \
   ../common/Dockerfile.rccltest \
   $DOCKERFILE \

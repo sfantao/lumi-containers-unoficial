@@ -11,24 +11,17 @@ if [ $# -eq 2 ] ; then
   procs=$2
 fi
 
-#
-# Start server to make available proprietary libraries to build against that can't reside
-# in the resulting images.
-#
-export SERVER_PORT=57698
-
+# export  DOCKER_BUILDKIT=0
+export BUILDKIT_STEP_LOG_MAX_SIZE=-1
+export BUILDKIT_STEP_LOG_MAX_SPEED=-1
 export DOCKERBUILD="docker build \
                       --ulimit nofile=32000:32000 \
-                      --network=host \
-                      --build-arg SERVER_PORT=$SERVER_PORT "
+                      --network=host "
 
-if [ ! -f server-files.pid ] ; then
-  echo "Starting server..."
-  ml python
-  python3 -m http.server --bind localhost --directory $(pwd)/server-files $SERVER_PORT &> server-files.log &
-  echo "$!" > server-files.pid
-  echo "Server has started!"
-fi
+#
+# Build helper file container
+#
+(cd helper-files ; docker build -t h .)
 
 #
 # Build recipes
@@ -37,16 +30,6 @@ fi
 echo "Starting image building..."
 make -j$procs $target
 echo "Done building images..."
-
-#
-# Kill server
-#
-echo "Stopping server..."
-p=$(cat server-files.pid)
-kill $p || true
-wait $p || true
-rm -rf server-files.pid
-echo "Server has stopped!"
 
 #
 # Close
@@ -74,6 +57,8 @@ cat > test.sbatch << EOF
 #SBATCH -o test.out
 #SBATCH -e test.err
 
+export SIF_FOLDER=/appl/local/containers/staging-area/lumi
+
 set -o pipefail
 export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
 
@@ -99,8 +84,6 @@ export SCMD="srun \
     -B /usr/lib64/libcxi.so.1"
 EOF
 
-
-files='pytorch/build-rocm-6.1.3-python-3.12-pytorch-v2.4.1.done'
 files=''
 
 if [[ "$files" == '' ]] ; then
@@ -111,14 +94,17 @@ if [[ "$files" == '' ]] ; then
   fi
 fi
 
-# Temp folder
-mkdir -p /tmp/sfantao-containers/lumi /tmp/sfantao-containers/.tmp
-# rm -rf /tmp/sfantao-containers/lumi/*
-ml singularity
+set -x
+
+mkdir -p singularity-images
+rm -rf /dev/shm/singularity-images
+mkdir -p /dev/shm/singularity-images
 
 #docker login
 for i in $files ; do
   while read -r line; do 
+    echo $line
+
     project=$(dirname $i)
     filename=$(basename $i)
     test_filename=${filename%.done}.test
@@ -134,73 +120,21 @@ for i in $files ; do
     fi
 
     hash=$(docker images $local_tag | head -n2 | tail -n1 | awk '{print $3;}')
-    rf1="$LUMI_TEST_FOLDER/$(echo $local_tag | sed 's/:/-/g' )-dockerhash-"
-    rf2="$hash"
-    tarf="${rf1}${rf2}.tar"
-    sif="${rf1}${rf2}.sif"
+    fname="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
+    tarf="${fname}.tar"
+    sif="${fname}.sif"
 
-    echo "$tarf"
+    # Build singularity images if it does exist or if the image is broken.
+    if [ ! -f singularity-images/$sif -o ! ./singularity-images/$sif ] ; then
+      
+      rm -rf singularity-images/$sif
 
-    #
-    # Push to lumi-o
-    #
-    if [ 0 -eq 1 ] ; then
-      set -x
-      o_prefix="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
-
-      if [ -f /tmp/sfantao-containers/$o_prefix.tar ] ; then
-        continue
-      fi
-    
-      # Create tarball
-      docker save $local_tag > /tmp/sfantao-containers/$o_prefix.tar
-
-      # Create SIF image
-      SINGULARITY_TMPDIR=/tmp/sfantao-containers/.tmp \
-        SINGULARITY_NOHTTPS=1 \
-        singularity build --fix-perms \
-        /tmp/sfantao-containers/$o_prefix.sif \
-        docker-archive:///tmp/sfantao-containers/$o_prefix.tar
-
-      continue
+      SINGULARITY_TMPDIR=/dev/shm/singularity-images \
+      singularity build \
+        --fix-perms \
+        singularity-images/$sif \
+        docker-daemon://${local_tag}
     fi
-
-    # # Compress 
-    # xz --keep -z -T16 /tmp/sfantao-containers/$o_prefix.tar
-
-    # (cd /tmp/sfantao-containers/ ; sha256sum $o_prefix.tar.xz $o_prefix.tar $o_prefix.sif > $o_prefix.checksum)
-
-    # # o_tarname="s3://sfantao-containers/$o_prefix.tar.xz"
-    # # o_sifname="s3://sfantao-containers/$o_prefix.sif"
-
-    # # # Upload compressed tarball
-    # # docker save $local_tag | xz -z -T32 -c | s3cmd put - $o_tarname
-
-    # # # Upload SIF image
-    # # s3cmd put /tmp/samantao-containers/$o_prefix.sif $o_tarname
-    #  set +x
-    # continue
-
-    #
-    # Push images
-    #
-    remote_tag=localhost:34567/$local_tag
-    remote_tag_default=localhost:5000/$local_tag
-    docker tag $local_tag $remote_tag
-    docker push $remote_tag
-    
-      # if ssh lumi "[[ ! -f ${tarf} ]]" ; then
-      #   echo "Uploading ${tarf}"
-      #   docker save $local_tag | xz -z -T32 -c | ssh lumi "bash -c 'rm -rf ${rf1}*.tar ; xz -d -c > ${tarf}'"
-      # else
-      #   echo "File ${tarf} exists!"
-      # fi
-
-    #
-    # Build singularity images remotely if they do not exist.
-    #
-    #ssh lumi "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker-archive://${tarf} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ${tarf} ; fi'"
-    ssh lumi "bash -c 'set -ex ; if [ -f ${sif} ] ; then echo "${sif} already exists!" ; else rm -rf ${rf1}*.sif ; mkdir -p /tmp/samantao-containers ; rm -rf /tmp/samantao-containers/* ; mkdir -p /tmp/.samantao-tmp ; SINGULARITY_TMPDIR=/tmp/.samantao-tmp singularity build --fix-perms /tmp/samantao-containers/a.sif docker://${remote_tag_default} ; cp -rf /tmp/samantao-containers/a.sif ${sif} ; chmod o+rx ${sif} ; fi'"
 
     #
     # Add entry to test script.
@@ -237,6 +171,6 @@ done
 
 rm -rf test.tar 
 tar -cf test.tar $(cat .all-test-files)
-scp test.tar lumi:$LUMI_TEST_FOLDER
-#ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
-ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"
+# scp test.tar lumi:$LUMI_TEST_FOLDER
+# #ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
+# ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"

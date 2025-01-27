@@ -1,7 +1,6 @@
-  RUN set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  set -eux ; \
+  tar -C / -xf /h/cpe-$CPE_VERSION.tar ; \
   \
   git clone -b cxi https://github.com/rocm/aws-ofi-rccl /opt/mybuild ; \
   cd /opt/mybuild ; \

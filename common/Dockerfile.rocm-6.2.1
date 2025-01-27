@@ -38,21 +38,20 @@ ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:$ROCM_PATH/lib
 #
 ENV RCCL_DEBUG 0
 
-RUN set -eux ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  set -eux ; \
   cd $ROCM_PATH/bin ; \
   for i in rocm_agent_enumerator rocminfo ; do \
     rm -rf $i ; \
-    curl -LO http://localhost:$SERVER_PORT/$i ; \
+    cp /h/$i . ; \
     chmod +x $i ; \
   done
 
-RUN set -eux ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  set -eux ; \
   cd $ROCM_PATH/llvm/bin ; \
-  curl -LO http://localhost:$SERVER_PORT/amdgpu-arch.cpp ; \
   rm amdgpu-arch offload-arch ; \
-  g++-12 amdgpu-arch.cpp -DNUM_TARGETS=8 -o amdgpu-arch ; \
-  g++-12 amdgpu-arch.cpp -DNUM_TARGETS=1 -o offload-arch ; \
-  rm -rf amdgpu-arch.cpp ; \
+  g++-12 /h/amdgpu-arch.cpp -DNUM_TARGETS=8 -o amdgpu-arch ; \
+  g++-12 /h/amdgpu-arch.cpp -DNUM_TARGETS=1 -o offload-arch ; \
   ./amdgpu-arch ; \
-  ./offload-arch ; \
-  true
+  ./offload-arch

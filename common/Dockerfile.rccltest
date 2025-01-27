@@ -1,9 +1,16 @@
-RUN set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
+RUN --mount=type=bind,from=h,source=/,dst=/h \
+  set -eux ; \
+  tar -C / -xf /h/cpe-$CPE_VERSION.tar ; \
   \
   git clone https://github.com/rocm/rccl-tests /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  RMAJOR=$(echo $ROCM_RELEASE | cut -d '.' -f1) ; \
+  RMINOR=$(echo $ROCM_RELEASE | cut -d '.' -f2) ; \
+  if [ $RMAJOR -lt 6 -o $RMINOR -lt 2 ] ; then \
+    git checkout -b mydev ae3e635 ; \
+  else \
+    git checkout -b mydev 448c4c7 ; \
+  fi ; \
   sed -i 's/-std=c++14/-std=c++14 --amdgpu-target=gfx90a:xnack- --amdgpu-target=gfx90a:xnack+/g' /opt/mybuild/src/Makefile ; \
   \
   cd /opt/mybuild ; \
