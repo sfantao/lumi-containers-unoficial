@@ -1,0 +1,26 @@
+ARG RCCL_VERSION
+
+RUN $WITH_CONDA ; set -eux ; \
+  rm -rf /opt/mybuild ; \
+  git clone https://github.com/rocm/rccl /opt/mybuild ; \
+  cd /opt/mybuild ; \
+  git checkout -b mydev $RCCL_VERSION ; \
+  git submodule sync ; \
+  git submodule update --init --recursive --jobs 0 ; \
+  mkdir /opt/mybuild/build ; \
+  cd  /opt/mybuild/build ; \
+  CXX=$ROCM_PATH/bin/hipcc \
+  cmake \
+    -DBUILD_LOCAL_GPU_TARGET_ONLY=ON \
+    -DCOMPILING_TARGETS=gfx90a \
+    -DENABLE_MSCCLPP=OFF \
+    -DCMAKE_INSTALL_PREFIX=/opt/rccl \
+    -DCMAKE_BUILD_TYPE=Release \
+    .. ; \
+  nice make -j V=1 VERBOSE=1 ; \
+  nice make -j install ; \
+  cd / ; rm -rf /opt/mybuild
+
+RUN set -eux ; \ 
+  rm -rf $ROCM_PATH/lib/librccl.so* ; \
+  ln -s /opt/rccl/lib/librccl.so* $ROCM_PATH/lib

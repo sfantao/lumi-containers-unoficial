@@ -32,6 +32,9 @@ RUN $WITH_CONDA; set -eux ; \
 #
 # Pytorch dependencies
 #
+RUN $WITH_CONDA; set -eux ; \
+  pip install packaging
+
 ARG APEX_VERSION
 RUN $WITH_CONDA; set -eux ; \
   git clone -b $APEX_VERSION --recursive https://github.com/rocm/apex /opt/mybuild ; \
@@ -306,10 +309,11 @@ RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/causal_conv1d-*.whl ; \
   true
 
+ARG TRITON_VERSION
 RUN $WITH_CONDA; set -eux ; \
   git clone --recursive https://github.com/triton-lang/triton /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev d2c8852 ; \
+  git checkout -b mydev $TRITON_VERSION ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   CC=gcc-12 \

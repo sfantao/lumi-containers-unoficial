@@ -28,7 +28,7 @@ export DOCKERBUILD="docker build \
 #
 
 echo "Starting image building..."
-make -j$procs $target
+# make -j$procs $target
 echo "Done building images..."
 
 #
@@ -42,6 +42,7 @@ echo " ------------------------------------ "
 # Upstream and test images.
 #
 LUMI_TEST_FOLDER="/pfs/lustrep3/scratch/project_462000394/containers/staging-area"
+
 Nodes=4
 echo "test.sbatch" > .all-test-files
 cat > test.sbatch << EOF
@@ -57,10 +58,11 @@ cat > test.sbatch << EOF
 #SBATCH -o test.out
 #SBATCH -e test.err
 
-export SIF_FOLDER=/appl/local/containers/staging-area/lumi
+cd $LUMI_TEST_FOLDER/runtests
 
 set -o pipefail
 export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
+export NCCL_NET_GDR_LEVEL=PHB
 
 #
 # Execute examples
@@ -84,7 +86,19 @@ export SCMD="srun \
     -B /usr/lib64/libcxi.so.1"
 EOF
 
-files=''
+echo "build-singularity-images.sh" >> .all-test-files
+cat > build-singularity-images.sh << EOF
+#!/bin/bash -eux
+
+mkdir -p /tmp/singularity-images
+export SINGULARITY_TMPDIR=/tmp/singularity-images
+
+mkdir -p $LUMI_TEST_FOLDER/lumi
+cd $LUMI_TEST_FOLDER
+
+EOF
+
+files='pytorch/build-rocm-6.2.4-python-3.12-pytorch-v2.6.0.done'
 
 if [[ "$files" == '' ]] ; then
   if [[ "$target" == "all" ]] ; then
@@ -94,16 +108,9 @@ if [[ "$files" == '' ]] ; then
   fi
 fi
 
-set -x
-
-mkdir -p singularity-images/lumi
-rm -rf /dev/shm/singularity-images
-mkdir -p /dev/shm/singularity-images
-
-#docker login
 for i in $files ; do
   while read -r line; do 
-    echo $line
+    echo "Preparing $line"
 
     project=$(dirname $i)
     filename=$(basename $i)
@@ -111,9 +118,6 @@ for i in $files ; do
     local_tag=$line
     remote_tag="127.0.0.1:5000/$local_tag"
 
-    docker tag $local_tag $remote_tag
-    docker push $remote_tag
-    continue
     #
     # Remote names
     #
@@ -123,28 +127,13 @@ for i in $files ; do
       false
     fi
 
+    docker tag $local_tag $remote_tag
+    docker push $remote_tag
+
     hash=$(docker images $local_tag | head -n2 | tail -n1 | awk '{print $3;}')
-    fname="$(echo $local_tag | sed 's/:/-/g' )-dockerhash-$hash"
-    tarf="${fname}.tar"
-    sif="${fname}.sif"
-
-
-
-    continue
-
-    # Build singularity images if it does exist or if the image is broken.
-    if [ -f singularity-images/$sif ] && ./singularity-images/$sif ; then
-      echo "SIF image singularity-images/$sif already exists!"
-    else
-      rm -rf singularity-images/$sif
-
-      #SINGULARITY_TMPDIR=/dev/shm/singularity-images
-
-      singularity build \
-        --fix-perms \
-        singularity-images/$sif \
-        docker-daemon://${local_tag}
-    fi
+    fname=$(echo $local_tag | sed 's/:/-/g' )
+    tarf="${fname}-dockerhash-$hash.tar"
+    sif="${fname}-dockerhash-$hash.sif"
 
     #
     # Add entry to test script.
@@ -154,7 +143,7 @@ for i in $files ; do
 
 
     test=\$(realpath $project/$test_filename)
-    sif=\$(realpath $sif)
+    sif=\$(realpath $LUMI_TEST_FOLDER/$sif)
 
     chmod +x \$test
 
@@ -176,11 +165,34 @@ for i in $files ; do
     \cd -
 EOF
 
+    #
+    # Add entry to build script
+    #
+    cat >> build-singularity-images.sh << EOF
+
+    # Build singularity images if it does exist or if the image is broken.
+    if [ -f $sif ] && $sif ls ; then
+      echo "SIF image \$(realpath $sif) already exists!"
+    else
+      echo Building "SIF image \$(realpath $sif)..."
+      rm -rf $fname-*.sif
+
+      singularity build \\
+        --fix-perms \\
+        $sif \\
+        docker://${remote_tag}
+    fi
+EOF
+
   done < $i
 done
 
-rm -rf test.tar 
-tar -cf test.tar $(cat .all-test-files)
-# scp test.tar lumi:$LUMI_TEST_FOLDER
+#rm -rf test.tar 
+#tar -cf test.tar $(cat .all-test-files)
+#ssh lumi "bash -c 'rm -rf $LUMI_TEST_FOLDER/runtests ; mkdir $LUMI_TEST_FOLDER/runtests'"
+#scp test.tar lumi:$LUMI_TEST_FOLDER/runtests
+#ssh lumi "bash -c 'cd $LUMI_TEST_FOLDER/runtests ; tar -xf test.tar'"
+
+
 # #ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar'"
 # ssh lumi "bash -c 'set -ex ; cd $LUMI_TEST_FOLDER; rm -rf runtests ; mkdir runtests ; cd runtests; tar -xf ../test.tar ; sbatch < test.sbatch'"

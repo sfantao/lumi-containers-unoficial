@@ -107,8 +107,12 @@ cd /myrun
 set -x
 
 ROCM_MAJOR_RELEASE=\$(echo \$ROCM_RELEASE | cut -d. -f1)
+ROCM_MINOR_RELEASE=\$(echo \$ROCM_RELEASE | cut -d. -f1)
 
 if [ \$ROCM_MAJOR_RELEASE -lt 6 ] ; then
+  exit 0
+fi
+if [ \$ROCM_MINOR_RELEASE -ge 2 ] ; then
   exit 0
 fi
 
@@ -491,7 +495,7 @@ set -x
   export HF_HOME=/hf_home
 
   if python -c 'import bitsandbytes ; print(bitsandbytes.__version__)' ; then
-    ROCR_VISIBLE_DEVICES=\$SLURM_LOCALID python -u bitsandbytes_test.py
+    HIP_VISIBLE_DEVICES=\$SLURM_LOCALID python -u bitsandbytes_test.py
   fi
 EOF
 chmod +x run.sh
@@ -501,4 +505,35 @@ $SCMD \
     -B /pfs/lustrep2/scratch/project_462000125/samantao/data-sets/hf_home:/hf_home \
     $1 \
     /myrun/run.sh |& tee res.log
-    
+
+#
+# Tests transformer engine
+#
+
+rm -rf run.sh
+cat > run.sh << EOF
+#!/bin/bash -e
+
+\$WITH_CONDA
+set -x
+
+  export HF_HOME=/hf_home
+  
+  if python -c 'import transformer_engine ; print(transformer_engine.__version__)' ; then
+
+    # cd /myrun
+    # HIP_VISIBLE_DEVICES=\$SLURM_LOCALID python mnist-te.py --use-te  --use-amp --epochs 3
+
+    cd /minGPT
+    HIP_VISIBLE_DEVICES=\$SLURM_LOCALID python -u gptSort.py --use-te  --use-amp --miters 320
+
+  fi
+EOF
+chmod +x run.sh
+
+$SCMD \
+    -B $(pwd):/myrun \
+    -B /pfs/lustrep2/scratch/project_462000125/samantao/data-sets/mnist:/datasets \
+    -B /pfs/lustrep2/scratch/project_462000125/samantao/data-sets/TransformerEngine/examples/pytorch/minGPT:/minGPT \
+    $1 \
+    /myrun/run.sh |& tee res.log

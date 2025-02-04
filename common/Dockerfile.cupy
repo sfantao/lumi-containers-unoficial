@@ -8,4 +8,5 @@ RUN $WITH_CONDA ; set -eux ; \
   export CC=$ROCM_PATH/llvm/bin/clang ; \
   export CXX=$ROCM_PATH/llvm/bin/clang++ ; \
   python setup.py bdist_wheel ; \
-  pip install dist/*.whl
+  pip install dist/*.whl ; \
+  rm -rf /opt/mybuild
