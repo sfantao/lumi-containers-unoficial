@@ -28,7 +28,7 @@ export DOCKERBUILD="docker build \
 #
 
 echo "Starting image building..."
-# make -j$procs $target
+make -j$procs $target
 echo "Done building images..."
 
 #
